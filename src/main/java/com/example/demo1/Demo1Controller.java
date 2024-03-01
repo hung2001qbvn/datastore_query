@@ -1,150 +1,90 @@
 package com.example.demo1;
 
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.ModelMap;
+
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.ModelAndView;
-import com.google.cloud.datastore.*;
-import com.google.cloud.datastore.StructuredQuery.CompositeFilter;
-import com.google.cloud.datastore.StructuredQuery.PropertyFilter;
+
+import com.google.appengine.api.datastore.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 
 @Controller
 public class Demo1Controller {
 
-    private  Datastore datastore = DatastoreOptions.getDefaultInstance().getService();
+    private  DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+
     @PostMapping("/add")
     public User add(@RequestBody User user) {
 
-        Key taskKey = datastore.newKeyFactory().setKind("Email").newKey(user.email);
-        Entity task =
-                Entity.newBuilder(taskKey)
-                        .set("name", user.name)
-                        .set("email", user.email)
-                        .build();
+        Entity employee = new Entity("Email");
+        employee.setProperty("name", user.name);
+        employee.setProperty("email", user.email);
 
-        datastore.put(task);
+        datastore.put(employee);
 
         return user;
 
     }
 
     @GetMapping("/find")
-    public List<User> findAll() {
-        List<User> list = new ArrayList<>();
-        Query<Entity> query =
-                Query.newEntityQueryBuilder()
-                        .setKind("Email")
-                        //.setFilter(PropertyFilter.eq("email", "bot3@gmail.com"))
-                        .build();
+    public List<Entity> findAll() {
+        Query q =
+                new Query("Email");
 
-        QueryResults<Entity> tasks = datastore.run(query);
-        while (tasks.hasNext()) {
-            Entity element = tasks.next();
-            User user = new User();
-            user.name = element.getString("name");
-            user.email = element.getString("email");
+        PreparedQuery pq = datastore.prepare(q);
+        List<Entity> result = pq.asList(FetchOptions.Builder.withLimit(100));
 
-            list.add(user);
-        }
-        return list;
+        return result;
     }
 
     @GetMapping("/find_by_name/{name}")
-    public List<User> findbyname(@PathVariable String name) {
-        List<User> list = new ArrayList<>();
-        Query<Entity> query =
-                Query.newEntityQueryBuilder()
-                        .setKind("Email")
-                        .setFilter(PropertyFilter.eq("name", name))
-                        .build();
+    public Entity findbyname(@PathVariable String name) {
+        Query.Filter propertyFilter =
+                new Query.FilterPredicate("name", Query.FilterOperator.EQUAL, name);
+        Query q = new Query("Email").setFilter(propertyFilter);
+        PreparedQuery pq = datastore.prepare(q);
+        Entity result = pq.asSingleEntity();
 
-        QueryResults<Entity> tasks = datastore.run(query);
-        User user = new User();
-
-        while (tasks.hasNext()) {
-            Entity element = tasks.next();
-
-            user.name = element.getString("name");
-            user.email = element.getString("email");
-
-            list.add(user);
-        }
-        return list;
+        return result;
     }
     @GetMapping("/find_by_email/{email}")
-    public List<User> findbyemail(@PathVariable String email) {
-        List<User> list = new ArrayList<>();
-        Query<Entity> query =
-                Query.newEntityQueryBuilder()
-                        .setKind("Email")
-                        .setFilter(PropertyFilter.eq("email", email))
-                        .build();
+    public Entity findbyemail(@PathVariable String email) {
+        Query.Filter propertyFilter =
+                new Query.FilterPredicate("email", Query.FilterOperator.EQUAL, email);
+        Query q = new Query("Email").setFilter(propertyFilter);
+        PreparedQuery pq = datastore.prepare(q);
+        Entity result = pq.asSingleEntity();
 
-        QueryResults<Entity> tasks = datastore.run(query);
-        while (tasks.hasNext()) {
-            Entity element = tasks.next();
-            User user = new User();
-            user.name = element.getString("name");
-            user.email = element.getString("email");
-
-            list.add(user);
-        }
-        return list;
+        return result;
     }
     @PostMapping("/loggin")
-    public List<User> loggin(@RequestBody User user) {
-        List<User> list = new ArrayList<>();
-        Query<Entity> query =
-                Query.newEntityQueryBuilder()
-                        .setKind("Email")
+    public Entity loggin(@RequestBody User user) {
+        Query.Filter propertyFilter =
+                new Query.CompositeFilter(Query.CompositeFilterOperator.AND, Arrays.asList(
+                new Query.FilterPredicate("name", Query.FilterOperator.EQUAL, user.name),
+                        new Query.FilterPredicate("email", Query.FilterOperator.EQUAL, user.email)));
+        Query q = new Query("Email").setFilter(propertyFilter);
+        PreparedQuery pq = datastore.prepare(q);
+        Entity result = pq.asSingleEntity();
 
-                        .setFilter(
-                                CompositeFilter.and(
-                                        PropertyFilter.eq("email", user.email)
-                                        ,PropertyFilter.eq("name", user.name)))
-                        .build();
-
-        QueryResults<Entity> tasks = datastore.run(query);
-        while (tasks.hasNext()) {
-            Entity element = tasks.next();
-            User user1 = new User();
-            user1.name = element.getString("name");
-            user1.email = element.getString("email");
-
-            list.add(user1);
-        }
-        return list;
+        return result;
     }
 
-    @PostMapping("/update/{email}")
-    public User update(@PathVariable String email,@RequestBody User user) {
-        List<User> list = new ArrayList<>();
-        Query<Entity> query =
-                Query.newEntityQueryBuilder()
-                        .setKind("Email")
-                        .setFilter(PropertyFilter.eq("email", user.email))
-                        .build();
+    @PostMapping("/update/{id}")
+    public User update(@PathVariable long id,@RequestBody User user) {
+        Entity employee = new Entity("Employee", id);
+        employee.setProperty("name", user.name);
+        employee.setProperty("email", user.email);
 
-        QueryResults<Entity> tasks = datastore.run(query);
-        while (tasks.hasNext()) {
-            return new User();
-        }
-        Key taskKey = datastore.newKeyFactory().setKind("Email").newKey(email);
-        Entity task =
-                Entity.newBuilder(taskKey)
-                        .set("name", user.name)
-                        .set("email", user.email)
-                        .build();
-        datastore.put(task);
+        datastore.put(employee);
         return user;
     }
-    @GetMapping("/delete/{email}")
-    public void delete(@PathVariable String email) {
-        Key taskKey = datastore.newKeyFactory().setKind("Email").newKey(email);
-        datastore.delete(taskKey);
+    @GetMapping("/delete/{id}")
+    public void delete(@PathVariable long id) {
+        Key k1 = KeyFactory.createKey("Email", id);
+        datastore.delete(k1);
     }
 }
